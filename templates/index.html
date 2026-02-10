@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>롱폼 제작 전용 챗봇</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 12px; }
+    h2 { margin-bottom: 8px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    label { font-size: 14px; }
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 10px; }
+    textarea { min-height: 160px; }
+    button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; }
+    #out { white-space: pre-wrap; border: 1px solid #ddd; border-radius: 12px; padding: 14px; margin-top: 14px; }
+    .half { flex: 1; min-width: 220px; }
+    .small { width: 160px; }
+  </style>
+</head>
+<body>
+  <h2>롱폼 동영상 제작 전용 챗봇</h2>
+
+  <div class="row">
+    <div class="half">
+      <label>주제(필수)</label>
+      <input id="topic" placeholder="예) 비트코인은 왜 주기적으로 급락할까?" />
+    </div>
+
+    <div class="small">
+      <label>길이(분)</label>
+      <select id="minutes">
+        <option value="5">5</option>
+        <option value="8">8</option>
+        <option value="10" selected>10</option>
+        <option value="15">15</option>
+        <option value="20">20</option>
+      </select>
+    </div>
+
+    <div class="half">
+      <label>톤</label>
+      <select id="tone">
+        <option>차분하고 설득력 있게</option>
+        <option>빠르고 임팩트 있게</option>
+        <option>진중하고 따뜻하게</option>
+        <option>유쾌하지만 전문적으로</option>
+      </select>
+    </div>
+
+    <div class="half">
+      <label>타깃 시청자</label>
+      <input id="audience" placeholder="예) 투자 초보 / 30~50대 직장인" />
+    </div>
+  </div>
+
+  <label>참고 자료/기사/메모(선택)</label>
+  <textarea id="source_text" placeholder="핵심 메모를 붙여넣으세요. (원문 길게 복붙보단 요약/메모가 좋아요)"></textarea>
+
+  <div class="row">
+    <button id="btn">롱폼 패키지 생성</button>
+  </div>
+
+  <div id="out">여기에 결과가 출력됩니다.</div>
+
+  <script>
+    const out = document.getElementById("out");
+
+    document.getElementById("btn").addEventListener("click", async () => {
+      const topic = document.getElementById("topic").value.trim();
+      const minutes = document.getElementById("minutes").value;
+      const tone = document.getElementById("tone").value;
+      const audience = document.getElementById("audience").value.trim() || "대중(초보자 포함)";
+      const source_text = document.getElementById("source_text").value.trim();
+
+      if (!topic) {
+        out.textContent = "주제를 입력해줘!";
+        return;
+      }
+
+      out.textContent = "생성 중...";
+
+      const res = await fetch("/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic, minutes, tone, audience, source_text })
+      });
+
+      const data = await res.json();
+      out.textContent = data.reply || "오류가 발생했어. 서버 로그를 확인해줘.";
+    });
+  </script>
+</body>
+</html>

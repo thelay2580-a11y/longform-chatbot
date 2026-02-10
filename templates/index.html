@@ -3,90 +3,138 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>롱폼 제작 전용 챗봇</title>
+  <title>롱폼 동영상 제작 전용 챗봇</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 12px; }
-    h2 { margin-bottom: 8px; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-    label { font-size: 14px; }
-    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 10px; }
-    textarea { min-height: 160px; }
-    button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; }
-    #out { white-space: pre-wrap; border: 1px solid #ddd; border-radius: 12px; padding: 14px; margin-top: 14px; }
+    body { font-family: Arial, sans-serif; max-width: 980px; margin: 24px auto; padding: 0 12px; }
+    h2 { margin: 0 0 14px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .card { border: 1px solid #e5e5e5; border-radius: 14px; padding: 14px; }
+    label { font-size: 13px; color: #333; display:block; margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 12px; box-sizing: border-box;
+      font-size: 14px;
+    }
+    textarea { min-height: 170px; resize: vertical; }
+    button { padding: 10px 14px; border: 0; border-radius: 12px; cursor: pointer; font-weight: 700; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
     .half { flex: 1; min-width: 220px; }
     .small { width: 160px; }
+    #out { white-space: pre-wrap; border: 1px solid #e5e5e5; border-radius: 14px; padding: 14px; min-height: 120px; }
+    .hint { font-size: 12px; color: #666; margin-top: 6px; }
   </style>
 </head>
 <body>
   <h2>롱폼 동영상 제작 전용 챗봇</h2>
 
-  <div class="row">
-    <div class="half">
-      <label>주제(필수)</label>
-      <input id="topic" placeholder="예) 비트코인은 왜 주기적으로 급락할까?" />
+  <div class="card">
+    <div class="row">
+      <div class="half">
+        <label>주제(필수)</label>
+        <input id="topic" placeholder="예) 비트코인은 왜 주기적으로 급락할까?" />
+      </div>
+
+      <div class="small">
+        <label>길이(분)</label>
+        <select id="minutes">
+          <option value="5">5</option>
+          <option value="8">8</option>
+          <option value="10" selected>10</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+
+      <div class="half">
+        <label>톤</label>
+        <select id="tone">
+          <option>차분하고 설득력 있게</option>
+          <option>빠르고 임팩트 있게</option>
+          <option>진중하고 따뜻하게</option>
+          <option>유쾌하지만 전문적으로</option>
+        </select>
+      </div>
+
+      <div class="half">
+        <label>타깃 시청자</label>
+        <input id="audience" placeholder="예) 투자 초보 / 30~50대 직장인" />
+      </div>
     </div>
 
-    <div class="small">
-      <label>길이(분)</label>
-      <select id="minutes">
-        <option value="5">5</option>
-        <option value="8">8</option>
-        <option value="10" selected>10</option>
-        <option value="15">15</option>
-        <option value="20">20</option>
-      </select>
-    </div>
+    <label>참고 자료/메모(선택)</label>
+    <textarea id="source_text" placeholder="핵심 메모를 붙여넣으세요. (원문 통째 복붙보단 요약/메모 추천)"></textarea>
+    <div class="hint">※ 결과는 아래에 한 번에 출력됩니다.</div>
 
-    <div class="half">
-      <label>톤</label>
-      <select id="tone">
-        <option>차분하고 설득력 있게</option>
-        <option>빠르고 임팩트 있게</option>
-        <option>진중하고 따뜻하게</option>
-        <option>유쾌하지만 전문적으로</option>
-      </select>
-    </div>
-
-    <div class="half">
-      <label>타깃 시청자</label>
-      <input id="audience" placeholder="예) 투자 초보 / 30~50대 직장인" />
+    <div class="row" style="margin-top:12px;">
+      <button id="btn">롱폼 패키지 생성</button>
+      <button id="copyBtn" disabled>결과 복사</button>
+      <button id="clearBtn">초기화</button>
     </div>
   </div>
 
-  <label>참고 자료/기사/메모(선택)</label>
-  <textarea id="source_text" placeholder="핵심 메모를 붙여넣으세요. (원문 길게 복붙보단 요약/메모가 좋아요)"></textarea>
-
-  <div class="row">
-    <button id="btn">롱폼 패키지 생성</button>
+  <div class="card" style="margin-top:14px;">
+    <div id="out">여기에 결과가 출력됩니다.</div>
   </div>
-
-  <div id="out">여기에 결과가 출력됩니다.</div>
 
   <script>
     const out = document.getElementById("out");
+    const btn = document.getElementById("btn");
+    const copyBtn = document.getElementById("copyBtn");
 
-    document.getElementById("btn").addEventListener("click", async () => {
+    async function generate() {
       const topic = document.getElementById("topic").value.trim();
       const minutes = document.getElementById("minutes").value;
       const tone = document.getElementById("tone").value;
-      const audience = document.getElementById("audience").value.trim() || "대중(초보자 포함)";
+      const audience = document.getElementById("audience").value.trim() || "대중";
       const source_text = document.getElementById("source_text").value.trim();
 
       if (!topic) {
-        out.textContent = "주제를 입력해줘!";
+        out.textContent = "주제를 입력해 주세요.";
         return;
       }
 
-      out.textContent = "생성 중...";
+      btn.disabled = true;
+      copyBtn.disabled = true;
+      out.textContent = "생성 중... (처음은 10~30초 걸릴 수 있어요)";
 
-      const res = await fetch("/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, minutes, tone, audience, source_text })
-      });
+      try {
+        const res = await fetch("/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic, minutes, tone, audience, source_text })
+        });
 
-      const data = await res.json();
-      out.textContent = data.reply || "오류가 발생했어. 서버 로그를 확인해줘.";
+        const data = await res.json();
+
+        if (!res.ok) {
+          out.textContent = data.reply || "오류가 발생했습니다. 서버 로그를 확인해 주세요.";
+        } else {
+          out.textContent = data.reply || "(빈 응답)";
+          copyBtn.disabled = !out.textContent.trim();
+        }
+      } catch (e) {
+        out.textContent = "네트워크 오류: 서버가 실행 중인지 확인해 주세요.";
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    btn.addEventListener("click", generate);
+
+    document.getElementById("copyBtn").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(out.textContent);
+        alert("복사 완료!");
+      } catch {
+        alert("복사 실패: 브라우저 권한/HTTPS 문제일 수 있어요.");
+      }
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      document.getElementById("topic").value = "";
+      document.getElementById("audience").value = "";
+      document.getElementById("source_text").value = "";
+      out.textContent = "여기에 결과가 출력됩니다.";
+      copyBtn.disabled = true;
     });
   </script>
 </body>

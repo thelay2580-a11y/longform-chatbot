@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>쇼츠 트렌드 탐색기</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; margin: 16px; }
+    input, select, button, textarea { padding: 10px; margin: 6px 0; width: 100%; max-width: 720px; box-sizing: border-box; }
+    textarea { min-height: 92px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+    th, td { border: 1px solid #ddd; padding: 8px; font-size: 14px; vertical-align: top; }
+    th { background: #f5f5f5; }
+    .hint { color: #555; font-size: 13px; margin: 10px 0; max-width: 720px; line-height: 1.35; }
+    .rowbtn { width: auto; padding: 8px 10px; }
+    pre { white-space: pre-wrap; border: 1px solid #ddd; padding: 12px; margin-top: 12px; max-width: 980px; }
+  </style>
+</head>
+<body>
+  <h2>쇼츠 트렌드 탐색기 (로컬 테스트)</h2>
+
+  <div class="hint">
+    ✅ 사용 흐름: (1) 검색 → (2) TOP 1~100 중 선택 → (3) 핵심 요약 3~4줄 입력(가능하면) → (4) [📋 제작 지침 복사] → (5) 다른 학습 AI에 붙여넣기<br/>
+    - <b>혼합 추천순</b>: 폭발+재현 절충 / <b>트래픽 폭발순</b>: v/h 중심 / <b>신인 재현순</b>: view/sub 중심
+  </div>
+
+  <label>검색어</label>
+  <input id="query" placeholder="예: 정치, 뉴스, 건강, 의학, 시니어, 생활" />
+
+  <label>기간</label>
+  <select id="days">
+    <option value="1">오늘(1일)</option>
+    <option value="3" selected>최근 3일</option>
+    <option value="7">최근 7일</option>
+    <option value="30">최근 30일</option>
+  </select>
+
+  <label>최소 조회수(필터)</label>
+  <input id="min_views" type="number" value="5000" />
+
+  <label>정렬 기준</label>
+  <select id="sort_by">
+    <option value="final" selected>혼합 추천순</option>
+    <option value="traffic">트래픽 폭발순</option>
+    <option value="replication">신인 재현순</option>
+  </select>
+
+  <label>카테고리 (복사용 지침에 반영)</label>
+  <select id="category">
+    <option value="politics_news" selected>정치/뉴스/이슈</option>
+    <option value="health_life">건강/의학/시니어/생활</option>
+  </select>
+
+  <label>핵심 내용 요약 (VIDEO_SUMMARY) — 가능하면 3~4줄로 입력</label>
+  <textarea id="video_summary" placeholder="예) 1) ○○ 정책 논란 핵심은 △△  2) 반대/찬성 쟁점  3) 시니어에게 영향 포인트  4) 결론/주의점"></textarea>
+
+  <button id="btn">트렌드 찾기(더미 TOP100)</button>
+
+  <div id="status" style="margin-top:10px;"></div>
+
+  <table id="tbl" style="display:none;">
+    <thead>
+      <tr>
+        <th>순위</th>
+        <th>점수(혼합/폭발/재현)</th>
+        <th>제목/링크</th>
+        <th>채널</th>
+        <th>조회</th>
+        <th>좋아요</th>
+        <th>v/h</th>
+        <th>view/sub</th>
+        <th>업로드</th>
+        <th>복사</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <pre id="resultBox" style="display:none;"></pre>
+
+<script>
+let LAST_ROWS = [];
+
+const btn = document.getElementById("btn");
+btn.onclick = async () => {
+  const query = document.getElementById("query").value.trim();
+  const days = parseInt(document.getElementById("days").value, 10);
+  const min_views = parseInt(document.getElementById("min_views").value, 10);
+  const sort_by = document.getElementById("sort_by").value;
+
+  if (!query) { alert("검색어를 입력하세요"); return; }
+
+  document.getElementById("status").innerText = "가져오는 중...";
+  const res = await fetch("/api/trends", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ query, days, min_views, topn: 100, sort_by })
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    document.getElementById("status").innerText = data.error || "오류";
+    return;
+  }
+
+  const rows = data.rows || [];
+  LAST_ROWS = rows;
+
+  document.getElementById("status").innerText = `결과 ${rows.length}개`;
+  const tbody = document.querySelector("#tbl tbody");
+  tbody.innerHTML = "";
+  document.getElementById("tbl").style.display = rows.length ? "" : "none";
+
+  rows.forEach((r, idx) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${idx+1}</td>
+      <td>
+        <div><b>${r.final_score}</b> (혼합)</div>
+        <div>${r.traffic_score} (폭발)</div>
+        <div>${r.replication_score} (재현)</div>
+      </td>
+      <td><a href="${r.video_url}" target="_blank">${escapeHtml(r.title)}</a></td>
+      <td><a href="${r.channel_url}" target="_blank">${escapeHtml(r.channel_title)}</a></td>
+      <td>${r.views}</td>
+      <td>${r.likes}</td>
+      <td>${r.views_per_hour}</td>
+      <td>${r.view_sub_ratio}</td>
+      <td>${escapeHtml(r.published_at)}</td>
+      <td><button class="rowbtn" onclick="copyBrief(${idx})">📋 제작 지침 복사</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+};
+
+function categoryLabel(v){
+  return v === "health_life" ? "건강/의학/시니어/생활" : "정치/뉴스/이슈";
+}
+
+function buildBriefText(row, rank){
+  const category = document.getElementById("category").value;
+  const summary = (document.getElementById("video_summary").value || "").trim();
+
+  const safeSummary = summary ? summary : "※ (요약 미입력) 제목/지표 기반으로 맥락을 추정하되, 허위 단정 없이 재구성하세요.";
+
+  const imageStyle = (category === "politics_news")
+    ? "Documentary news style, realistic, credible, newsroom atmosphere"
+    : "Warm senior lifestyle style, empathetic, realistic, everyday Korean life mood";
+
+  return `[트렌드 기반 쇼츠 제작 지침 v2]
+
+1. 참고 영상 정보
+- 영상 링크: ${row.video_url}
+- 채널: ${row.channel_title}
+- 최근 트렌드 순위: TOP ${rank} / 100
+- 조회수: ${row.views}
+- 조회 속도(v/h): ${row.views_per_hour}
+- 구독자 대비(view/sub): ${row.view_sub_ratio}
+
+2. 핵심 내용 요약 (검색기/운영자 입력)
+${safeSummary}
+
+3. 제작 요구사항
+- 대본 길이: 한국어 띄어쓰기 포함 300자~400자 내외 (나레이션 40~60초)
+- 마지막 5초: ‘좋아요 + 구독’ 자연스럽게 유도
+
+4. 출력 요청 (아래 순서)
+① 클릭 유도 제목 5개
+② 썸네일 문구 5개 (15자 내외)
+③ 쇼츠 대본 1개 (300~400자)
+④ 영상 설명 1개 (2~3줄)
+⑤ 태그 20개 (쉼표)
+
+⑥ 썸네일 이미지 프롬프트 1개 (영문)
+- Korean person(s), Korean setting
+- ${imageStyle}
+- cinematic lighting, high contrast, 9:16, ultra realistic, no text, no subtitles
+
+⑦ 영상 장면용 이미지 프롬프트 6개 (영문)
+- 대본 흐름에 맞춘 장면 6개
+- Korean person(s), Korean setting
+- ${imageStyle}
+- each prompt independent, 9:16, ultra realistic, no text, no subtitles
+`;
+}
+
+async function copyBrief(idx){
+  const row = LAST_ROWS[idx];
+  if (!row) return;
+
+  const text = buildBriefText(row, idx + 1);
+
+  const box = document.getElementById("resultBox");
+  box.style.display = "";
+  box.textContent = text;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    document.getElementById("status").innerText = "복사 완료 ✅ 다른 학습 AI에 Ctrl+V로 붙여넣기!";
+  } catch (e) {
+    document.getElementById("status").innerText = "자동 복사 실패(브라우저 제한). 아래 텍스트를 드래그해서 Ctrl+C로 복사하세요.";
+  }
+}
+
+function escapeHtml(str){ return (str||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+</script>
+</body>
+</html>

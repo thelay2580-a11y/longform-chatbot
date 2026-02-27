@@ -12,12 +12,12 @@
     th, td { border: 1px solid #ddd; padding: 8px; font-size: 14px; vertical-align: top; }
     th { background: #f5f5f5; }
     .hint { color: #555; font-size: 13px; margin: 10px 0; max-width: 720px; line-height: 1.35; }
-    .rowbtn { width: auto; padding: 8px 10px; }
+    .rowbtn { width: auto; padding: 8px 10px; cursor: pointer; font-weight: bold; }
     pre { white-space: pre-wrap; border: 1px solid #ddd; padding: 12px; margin-top: 12px; max-width: 980px; }
   </style>
 </head>
 <body>
-  <h2>쇼츠 트렌드 탐색기 (로컬 테스트)</h2>
+  <h2>쇼츠 트렌드 탐색기</h2>
 
   <div class="hint">
     ✅ 사용 흐름: (1) 검색 → (2) TOP 1~100 중 선택 → (3) 핵심 요약 3~4줄 입력(가능하면) → (4) [📋 제작 지침 복사] → (5) 다른 학습 AI에 붙여넣기<br/>
@@ -25,14 +25,16 @@
   </div>
 
   <label>검색어</label>
-  <input id="query" placeholder="예: 정치, 뉴스, 건강, 의학, 시니어, 생활" />
+  <input id="query" placeholder="예: 정치, 뉴스, 건강, 의학, 시니어, 경제, 생활" />
 
-  <label>기간</label>
+  <label>기간 (업그레이드됨!)</label>
   <select id="days">
     <option value="1">오늘(1일)</option>
     <option value="3" selected>최근 3일</option>
     <option value="7">최근 7일</option>
     <option value="30">최근 30일</option>
+    <option value="365">최근 1년</option>
+    <option value="3650">전체 (모든 기간)</option>
   </select>
 
   <label>최소 조회수(필터)</label>
@@ -45,18 +47,19 @@
     <option value="replication">신인 재현순</option>
   </select>
 
-  <label>카테고리 (복사용 지침에 반영)</label>
+  <label>카테고리 (복사용 지침에 자동 반영)</label>
   <select id="category">
     <option value="politics_news" selected>정치/뉴스/이슈</option>
+    <option value="economy">경제/재테크/부동산</option>
     <option value="health_life">건강/의학/시니어/생활</option>
   </select>
 
   <label>핵심 내용 요약 (VIDEO_SUMMARY) — 가능하면 3~4줄로 입력</label>
-  <textarea id="video_summary" placeholder="예) 1) ○○ 정책 논란 핵심은 △△  2) 반대/찬성 쟁점  3) 시니어에게 영향 포인트  4) 결론/주의점"></textarea>
+  <textarea id="video_summary" placeholder="예) 1) ○○ 정책 논란 핵심은 △△  2) 반대/찬성 쟁점  3) 시청자에게 미치는 영향  4) 결론/주의점"></textarea>
 
-  <button id="btn">트렌드 찾기(더미 TOP100)</button>
+  <button id="btn">트렌드 찾기(쇼츠만)</button>
 
-  <div id="status" style="margin-top:10px;"></div>
+  <div id="status" style="margin-top:10px; font-weight: bold; color: blue;"></div>
 
   <table id="tbl" style="display:none;">
     <thead>
@@ -65,11 +68,11 @@
         <th>점수(혼합/폭발/재현)</th>
         <th>제목/링크</th>
         <th>채널</th>
-        <th>조회</th>
+        <th>조회수</th>
         <th>좋아요</th>
         <th>v/h</th>
         <th>view/sub</th>
-        <th>업로드</th>
+        <th>업로드 날짜</th>
         <th>복사</th>
       </tr>
     </thead>
@@ -90,97 +93,152 @@ btn.onclick = async () => {
 
   if (!query) { alert("검색어를 입력하세요"); return; }
 
-  document.getElementById("status").innerText = "가져오는 중...";
-  const res = await fetch("/api/trends", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ query, days, min_views, topn: 100, sort_by })
-  });
+  document.getElementById("status").innerText = "⏳ 유튜브 데이터를 가져오는 중입니다... (약 3~5초 소요)";
+  document.getElementById("tbl").style.display = "none";
+  
+  try {
+    const res = await fetch("/api/trends", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ query, days, min_views, topn: 100, sort_by })
+    });
 
-  const data = await res.json();
-  if (!res.ok) {
-    document.getElementById("status").innerText = data.error || "오류";
-    return;
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById("status").innerText = "❌ 오류: " + (data.error || "알 수 없는 오류");
+      return;
+    }
+
+    const rows = data.rows || [];
+    LAST_ROWS = rows;
+
+    if (rows.length === 0) {
+      document.getElementById("status").innerText = "조건에 맞는 쇼츠 영상이 없습니다.";
+      return;
+    }
+
+    document.getElementById("status").innerText = `✅ 결과 ${rows.length}개 완료!`;
+    const tbody = document.querySelector("#tbl tbody");
+    tbody.innerHTML = "";
+    document.getElementById("tbl").style.display = "";
+
+    rows.forEach((r, idx) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><b>${idx+1}</b></td>
+        <td>
+          <div style="color:blue;"><b>${num(r.final_score)}</b> (혼합)</div>
+          <div style="color:red;">${num(r.traffic_score)} (폭발)</div>
+          <div style="color:green;">${num(r.replication_score)} (재현)</div>
+        </td>
+        <td><a href="${r.video_url}" target="_blank" style="text-decoration:none;">${escapeHtml(r.title)}</a></td>
+        <td><a href="${r.channel_url}" target="_blank">${escapeHtml(r.channel_title)}</a></td>
+        <td>${r.views.toLocaleString()}</td>
+        <td>${r.likes.toLocaleString()}</td>
+        <td>${num(r.views_per_hour)}</td>
+        <td>${num(r.view_sub_ratio)}</td>
+        <td>${escapeHtml(r.published_at)}</td>
+        <td><button class="rowbtn" onclick="copyBrief(${idx})">📋 제작 지침 복사</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    document.getElementById("status").innerText = "❌ 네트워크 오류가 발생했습니다.";
   }
-
-  const rows = data.rows || [];
-  LAST_ROWS = rows;
-
-  document.getElementById("status").innerText = `결과 ${rows.length}개`;
-  const tbody = document.querySelector("#tbl tbody");
-  tbody.innerHTML = "";
-  document.getElementById("tbl").style.display = rows.length ? "" : "none";
-
-  rows.forEach((r, idx) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${idx+1}</td>
-      <td>
-        <div><b>${r.final_score}</b> (혼합)</div>
-        <div>${r.traffic_score} (폭발)</div>
-        <div>${r.replication_score} (재현)</div>
-      </td>
-      <td><a href="${r.video_url}" target="_blank">${escapeHtml(r.title)}</a></td>
-      <td><a href="${r.channel_url}" target="_blank">${escapeHtml(r.channel_title)}</a></td>
-      <td>${r.views}</td>
-      <td>${r.likes}</td>
-      <td>${r.views_per_hour}</td>
-      <td>${r.view_sub_ratio}</td>
-      <td>${escapeHtml(r.published_at)}</td>
-      <td><button class="rowbtn" onclick="copyBrief(${idx})">📋 제작 지침 복사</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
 };
 
 function categoryLabel(v){
-  return v === "health_life" ? "건강/의학/시니어/생활" : "정치/뉴스/이슈";
+  if (v === "health_life") return "건강/의학/시니어/생활";
+  if (v === "economy") return "경제/재테크/부동산";
+  return "정치/뉴스/이슈";
 }
 
 function buildBriefText(row, rank){
   const category = document.getElementById("category").value;
   const summary = (document.getElementById("video_summary").value || "").trim();
 
-  const safeSummary = summary ? summary : "※ (요약 미입력) 제목/지표 기반으로 맥락을 추정하되, 허위 단정 없이 재구성하세요.";
+  const safeSummary = summary ? summary : "※ (요약 미입력) 제공된 정보와 맥락을 추정하여, 허위 사실 없이 완벽하게 재구성하세요.";
 
-  const imageStyle = (category === "politics_news")
-    ? "Documentary news style, realistic, credible, newsroom atmosphere"
-    : "Warm senior lifestyle style, empathetic, realistic, everyday Korean life mood";
+  // 카테고리별 영문 이미지 프롬프트 스타일 자동 설정
+  let imageStyle = "";
+  if (category === "politics_news") {
+    imageStyle = "Documentary news style, realistic, credible, newsroom atmosphere";
+  } else if (category === "economy") {
+    imageStyle = "Professional financial style, wealth, success, realistic, modern office or chart background";
+  } else {
+    imageStyle = "Warm senior lifestyle style, empathetic, realistic, everyday Korean life mood";
+  }
 
-  return `[트렌드 기반 쇼츠 제작 지침 v2]
+  return `[트렌드 기반 쇼츠 제작 지침 v3]
 
 1. 참고 영상 정보
 - 영상 링크: ${row.video_url}
 - 채널: ${row.channel_title}
 - 최근 트렌드 순위: TOP ${rank} / 100
-- 조회수: ${row.views}
+- 조회수: ${row.views.toLocaleString()}
 - 조회 속도(v/h): ${row.views_per_hour}
 - 구독자 대비(view/sub): ${row.view_sub_ratio}
 
 2. 핵심 내용 요약 (검색기/운영자 입력)
 ${safeSummary}
 
-3. 제작 요구사항
-- 대본 길이: 한국어 띄어쓰기 포함 300자~400자 내외 (나레이션 40~60초)
-- 마지막 5초: ‘좋아요 + 구독’ 자연스럽게 유도
+※ 위 요약은 참고 영상의 핵심 맥락을 정리한 것이며, AI는 이 요약을 기준으로 주제를 이해하되 표현·문장·전개는 완전히 새롭게 재구성해야 한다.
 
-4. 출력 요청 (아래 순서)
+3. 왜 이 영상이 뜨는가 (트렌드 분석)
+- 검색 기간 내 조회 속도가 매우 빠름
+- 제목/훅이 시청자의 ‘호기심·손해 회피’ 심리를 강하게 자극함
+- 현재 카테고리 흐름과 맞물림: ${categoryLabel(category)}
+
+4. 제작 방향 (중요)
+- 참고 영상의 문장/전개/표현을 절대 그대로 모방하지 말 것!
+- 같은 주제라도 질문·각도·훅은 완전히 새롭게 구성할 것
+- 시청자가 "이건 꼭 봐야 해!"라고 느끼게 만들 것
+
+5. 쇼츠 제작 요구사항
+- 대본 길이: 한국어 띄어쓰기 포함 300자~400자 내외 (나레이션 40~60초 분량)
+- 0~2초: 강력한 훅 (경고/질문/반전)
+- 3~7초: 끝까지 봐야 하는 이유 제시
+- 중반: 핵심 정보 3포인트
+- 마무리(마지막 5초): 핵심 한 줄 요약 + 자연스러운 '좋아요 및 구독' 유도 문장
+
+6. 카테고리별 톤 & 안전 규칙
+
+[정치/뉴스/이슈 (애국 뉴스 포함)]
+- 팩트는 객관적으로 전달하되, 나레이션 톤은 경각심을 일깨우는 날카롭고 호소력 있는 말투 유지
+- 확인되지 않은 내용은 '보도에 따르면', '논란이 되고 있다' 등으로 표현
+- 혐오/선동/음모론 단정 절대 금지
+
+[경제/재테크/부동산]
+- 특정 주식/코인/부동산에 대한 '무조건적인 매수/매도 추천' 절대 금지
+- 지나친 수익률 과장이나 허위 보장 금지
+- 시청자의 '손실 회피 심리'를 자극하되 철저히 객관적 수치와 근거 위주로 설명할 것
+
+[건강/의학/시니어/생활]
+- 치료·완치 단정 금지, '개인차가 있을 수 있음' 명시 또는 의사 상담 권유
+- 과도한 공포 조장 금지 (단, 실생활 주의점은 명확히 강조)
+- 시니어가 이해하기 쉬운 단어와 편안한 말투 사용
+
+7. 출력 요청 (아래 순서로 작성)
+
 ① 클릭 유도 제목 5개
-② 썸네일 문구 5개 (15자 내외)
-③ 쇼츠 대본 1개 (300~400자)
-④ 영상 설명 1개 (2~3줄)
-⑤ 태그 20개 (쉼표)
+② 썸네일 문구 5개 (15자 내외, 텍스트만)
+③ 쇼츠 대본 1개 (300~400자, 나레이션 기준)
+④ 유튜브 영상 설명란 1개 (2~3줄)
+⑤ 해시태그 20개 (쉼표로 구분)
 
-⑥ 썸네일 이미지 프롬프트 1개 (영문)
+⑥ 썸네일용 영문 이미지 프롬프트 1개
 - Korean person(s), Korean setting
 - ${imageStyle}
-- cinematic lighting, high contrast, 9:16, ultra realistic, no text, no subtitles
+- cinematic lighting, high contrast, 9:16 aspect ratio, ultra realistic, no text, no subtitles
 
-⑦ 영상 장면용 이미지 프롬프트 6개 (영문)
-- 대본 흐름에 맞춘 장면 6개
+⑦ 영상 배경용 영문 이미지 프롬프트 6개
+- 대본 흐름에 맞춘 장면 6개 묘사
 - Korean person(s), Korean setting
 - ${imageStyle}
-- each prompt independent, 9:16, ultra realistic, no text, no subtitles
+- each prompt independent, 9:16 aspect ratio, ultra realistic, no text, no subtitles
+
+⚠️ 저작권 안전 재구성 필수
+⚠️ 참고 영상과 유사한 문장/구성/순서 사용 금지
 `;
 }
 
@@ -191,17 +249,27 @@ async function copyBrief(idx){
   const text = buildBriefText(row, idx + 1);
 
   const box = document.getElementById("resultBox");
-  box.style.display = "";
+  box.style.display = "block";
   box.textContent = text;
 
   try {
     await navigator.clipboard.writeText(text);
-    document.getElementById("status").innerText = "복사 완료 ✅ 다른 학습 AI에 Ctrl+V로 붙여넣기!";
+    document.getElementById("status").innerText = "✅ [복사 완료] 이제 다른 학습 AI(Gems 등)에 Ctrl+V 로 붙여넣기 하세요!";
   } catch (e) {
-    document.getElementById("status").innerText = "자동 복사 실패(브라우저 제한). 아래 텍스트를 드래그해서 Ctrl+C로 복사하세요.";
+    selectText(box);
+    document.getElementById("status").innerText = "⚠️ 자동 복사 실패(브라우저 권한). 아래 텍스트가 파랗게 선택되었으니 직접 복사(Ctrl+C) 해주세요.";
   }
 }
 
+function selectText(el){
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function num(v){ if (v === null || v === undefined) return ""; return String(v); }
 function escapeHtml(str){ return (str||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
 </script>
 </body>

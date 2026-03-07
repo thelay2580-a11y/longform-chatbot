@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>쇼츠 트렌드 탐색기</title>
+  <title>유튜브 만능 트렌드 탐색기</title>
   <style>
     body { font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; margin: 16px; }
     input, select, button, textarea { padding: 10px; margin: 6px 0; width: 100%; max-width: 720px; box-sizing: border-box; }
@@ -14,38 +14,58 @@
     .hint { color: #555; font-size: 13px; margin: 10px 0; max-width: 720px; line-height: 1.35; }
     .rowbtn { width: auto; padding: 8px 10px; cursor: pointer; font-weight: bold; }
     pre { white-space: pre-wrap; border: 1px solid #ddd; padding: 12px; margin-top: 12px; max-width: 980px; }
+    .filter-group { display: flex; gap: 10px; max-width: 720px; }
+    .filter-group > div { flex: 1; }
   </style>
 </head>
 <body>
-  <h2>쇼츠 트렌드 탐색기</h2>
+  <h2>🚀 유튜브 만능 트렌드 탐색기 (쇼츠 & 롱폼)</h2>
 
   <div class="hint">
-    ✅ 사용 흐름: (1) 검색 → (2) TOP 1~100 중 선택 → (3) 핵심 요약 3~4줄 입력(가능하면) → (4) [📋 제작 지침 복사] → (5) 다른 학습 AI에 붙여넣기<br/>
-    - <b>혼합 추천순</b>: 폭발+재현 절충 / <b>트래픽 폭발순</b>: v/h 중심 / <b>신인 재현순</b>: view/sub 중심
+    ✅ <b>사용 흐름:</b> (1) 검색 → (2) TOP 리스트 확인 → (3) 핵심 요약 입력 → (4) [📋 제작 지침 복사] → (5) 학습 AI에 붙여넣기<br/>
+    💡 영상 길이에 따라 복사되는 '제작 대본 길이'가 자동으로 스마트하게 조절됩니다!
   </div>
 
   <label>검색어</label>
   <input id="query" placeholder="예: 정치, 뉴스, 건강, 의학, 시니어, 경제, 생활" />
 
-  <label>기간 (업그레이드됨!)</label>
-  <select id="days">
-    <option value="1">오늘(1일)</option>
-    <option value="3" selected>최근 3일</option>
-    <option value="7">최근 7일</option>
-    <option value="30">최근 30일</option>
-    <option value="365">최근 1년</option>
-    <option value="3650">전체 (모든 기간)</option>
-  </select>
+  <div class="filter-group">
+    <div>
+      <label>영상 길이 (새기능!)</label>
+      <select id="duration">
+        <option value="shorts" selected>1분 미만 (쇼츠 전용)</option>
+        <option value="under_5m">1분 ~ 5분 미만 (미드폼)</option>
+        <option value="over_10m">10분 이상 (롱폼)</option>
+        <option value="all">전체 길이 무관</option>
+      </select>
+    </div>
+    <div>
+      <label>기간</label>
+      <select id="days">
+        <option value="1">오늘(1일)</option>
+        <option value="3" selected>최근 3일</option>
+        <option value="7">최근 7일</option>
+        <option value="30">최근 30일</option>
+        <option value="365">최근 1년</option>
+        <option value="3650">전체 (모든 기간)</option>
+      </select>
+    </div>
+  </div>
 
-  <label>최소 조회수(필터)</label>
-  <input id="min_views" type="number" value="5000" />
-
-  <label>정렬 기준</label>
-  <select id="sort_by">
-    <option value="final" selected>혼합 추천순</option>
-    <option value="traffic">트래픽 폭발순</option>
-    <option value="replication">신인 재현순</option>
-  </select>
+  <div class="filter-group">
+    <div>
+      <label>최소 조회수(필터)</label>
+      <input id="min_views" type="number" value="5000" />
+    </div>
+    <div>
+      <label>정렬 기준</label>
+      <select id="sort_by">
+        <option value="final" selected>혼합 추천순</option>
+        <option value="traffic">트래픽 폭발순</option>
+        <option value="replication">신인 재현순</option>
+      </select>
+    </div>
+  </div>
 
   <label>카테고리 (복사용 지침에 자동 반영)</label>
   <select id="category">
@@ -54,10 +74,10 @@
     <option value="health_life">건강/의학/시니어/생활</option>
   </select>
 
-  <label>핵심 내용 요약 (VIDEO_SUMMARY) — 가능하면 3~4줄로 입력</label>
-  <textarea id="video_summary" placeholder="예) 1) ○○ 정책 논란 핵심은 △△  2) 반대/찬성 쟁점  3) 시청자에게 미치는 영향  4) 결론/주의점"></textarea>
+  <label>핵심 내용 요약 (VIDEO_SUMMARY)</label>
+  <textarea id="video_summary" placeholder="예) 1) ○○ 정책 논란 핵심  2) 반대/찬성 쟁점  3) 결론/주의점"></textarea>
 
-  <button id="btn">트렌드 찾기(쇼츠만)</button>
+  <button id="btn">트렌드 찾기</button>
 
   <div id="status" style="margin-top:10px; font-weight: bold; color: blue;"></div>
 
@@ -65,14 +85,14 @@
     <thead>
       <tr>
         <th>순위</th>
-        <th>점수(혼합/폭발/재현)</th>
+        <th>점수</th>
         <th>제목/링크</th>
         <th>채널</th>
         <th>조회수</th>
         <th>좋아요</th>
         <th>v/h</th>
         <th>view/sub</th>
-        <th>업로드 날짜</th>
+        <th>업로드</th>
         <th>복사</th>
       </tr>
     </thead>
@@ -90,6 +110,7 @@ btn.onclick = async () => {
   const days = parseInt(document.getElementById("days").value, 10);
   const min_views = parseInt(document.getElementById("min_views").value, 10);
   const sort_by = document.getElementById("sort_by").value;
+  const duration = document.getElementById("duration").value; // 길이 값 추가
 
   if (!query) { alert("검색어를 입력하세요"); return; }
 
@@ -100,7 +121,7 @@ btn.onclick = async () => {
     const res = await fetch("/api/trends", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ query, days, min_views, topn: 100, sort_by })
+      body: JSON.stringify({ query, days, min_views, topn: 100, sort_by, duration })
     });
 
     const data = await res.json();
@@ -113,7 +134,7 @@ btn.onclick = async () => {
     LAST_ROWS = rows;
 
     if (rows.length === 0) {
-      document.getElementById("status").innerText = "조건에 맞는 쇼츠 영상이 없습니다.";
+      document.getElementById("status").innerText = "조건에 맞는 영상이 없습니다.";
       return;
     }
 
@@ -155,90 +176,68 @@ function categoryLabel(v){
 
 function buildBriefText(row, rank){
   const category = document.getElementById("category").value;
+  const duration = document.getElementById("duration").value;
   const summary = (document.getElementById("video_summary").value || "").trim();
-
   const safeSummary = summary ? summary : "※ (요약 미입력) 제공된 정보와 맥락을 추정하여, 허위 사실 없이 완벽하게 재구성하세요.";
 
-  // 카테고리별 영문 이미지 프롬프트 스타일 자동 설정
   let imageStyle = "";
-  if (category === "politics_news") {
-    imageStyle = "Documentary news style, realistic, credible, newsroom atmosphere";
-  } else if (category === "economy") {
-    imageStyle = "Professional financial style, wealth, success, realistic, modern office or chart background";
-  } else {
-    imageStyle = "Warm senior lifestyle style, empathetic, realistic, everyday Korean life mood";
+  if (category === "politics_news") imageStyle = "Documentary news style, realistic, credible, newsroom atmosphere";
+  else if (category === "economy") imageStyle = "Professional financial style, wealth, success, realistic, modern office or chart background";
+  else imageStyle = "Warm senior lifestyle style, empathetic, realistic, everyday Korean life mood";
+
+  // 스마트 스크립트 분량 자동 조절
+  let scriptLength = "한국어 띄어쓰기 포함 300자~400자 내외 (나레이션 40~60초 쇼츠 분량)";
+  let contentStructure = "- 0~2초: 강력한 훅 (경고/질문/반전)\n- 3~7초: 끝까지 봐야 하는 이유 제시\n- 중반: 핵심 정보 3포인트\n- 마무리(마지막 5초): 핵심 한 줄 요약 + 구독 유도";
+
+  if (duration === "under_5m" || duration === "all") {
+    scriptLength = "한국어 띄어쓰기 포함 1000자~1500자 내외 (나레이션 3~5분 미드폼 분량)";
+    contentStructure = "- 오프닝 (15초): 강력한 훅과 주제 제시\n- 본론: 3~4개의 명확한 챕터로 나누어 상세 정보와 사례 제시\n- 결론: 내용 요약 및 시청자 행동 유도(구독/좋아요)";
+  } else if (duration === "over_10m") {
+    scriptLength = "한국어 띄어쓰기 포함 3000자 이상 (나레이션 10분 이상 롱폼 분량, 서론/본론/결론 명확히 구분)";
+    contentStructure = "- 오프닝 (30초): 시청자의 문제를 짚어주고 해결책 제시\n- 본론: 5개 이상의 상세 챕터, 깊이 있는 정보와 비유\n- 브릿지: 챕터 사이사이 이탈을 막는 떡밥 투척\n- 결론: 최종 요약 및 채널 구독의 당위성 어필";
   }
 
-  return `[트렌드 기반 쇼츠 제작 지침 v3]
+  return `[트렌드 기반 맞춤형 제작 지침 v4]
 
 1. 참고 영상 정보
 - 영상 링크: ${row.video_url}
 - 채널: ${row.channel_title}
-- 최근 트렌드 순위: TOP ${rank} / 100
-- 조회수: ${row.views.toLocaleString()}
-- 조회 속도(v/h): ${row.views_per_hour}
-- 구독자 대비(view/sub): ${row.view_sub_ratio}
+- 조회수: ${row.views.toLocaleString()} (트렌드 순위 TOP ${rank})
+- 조회 속도(v/h): ${row.views_per_hour}, 구독자 대비(view/sub): ${row.view_sub_ratio}
 
-2. 핵심 내용 요약 (검색기/운영자 입력)
+2. 핵심 내용 요약
 ${safeSummary}
 
-※ 위 요약은 참고 영상의 핵심 맥락을 정리한 것이며, AI는 이 요약을 기준으로 주제를 이해하되 표현·문장·전개는 완전히 새롭게 재구성해야 한다.
+3. 제작 방향 (중요)
+- 참고 영상의 문장을 그대로 베끼지 말고, 완전히 새로운 각도와 질문으로 재구성할 것.
+- 타깃 카테고리: ${categoryLabel(category)}
 
-3. 왜 이 영상이 뜨는가 (트렌드 분석)
-- 검색 기간 내 조회 속도가 매우 빠름
-- 제목/훅이 시청자의 ‘호기심·손해 회피’ 심리를 강하게 자극함
-- 현재 카테고리 흐름과 맞물림: ${categoryLabel(category)}
+4. 대본 제작 요구사항
+- 대본 목표 길이: ${scriptLength}
+- 구성 흐름:
+${contentStructure}
 
-4. 제작 방향 (중요)
-- 참고 영상의 문장/전개/표현을 절대 그대로 모방하지 말 것!
-- 같은 주제라도 질문·각도·훅은 완전히 새롭게 구성할 것
-- 시청자가 "이건 꼭 봐야 해!"라고 느끼게 만들 것
+5. 카테고리별 안전 규칙
+[정치/뉴스/이슈] 팩트 기반 중립성 유지, 자극적 선동 금지 (단, 톤은 긴장감 있게)
+[경제/재테크] 맹목적 매수/매도 추천 금지, 객관적 수치 위주 설명
+[건강/생활] 치료 완치 단정 금지, 의사 상담 권유, 이해하기 쉬운 단어 사용
 
-5. 쇼츠 제작 요구사항
-- 대본 길이: 한국어 띄어쓰기 포함 300자~400자 내외 (나레이션 40~60초 분량)
-- 0~2초: 강력한 훅 (경고/질문/반전)
-- 3~7초: 끝까지 봐야 하는 이유 제시
-- 중반: 핵심 정보 3포인트
-- 마무리(마지막 5초): 핵심 한 줄 요약 + 자연스러운 '좋아요 및 구독' 유도 문장
-
-6. 카테고리별 톤 & 안전 규칙
-
-[정치/뉴스/이슈 (애국 뉴스 포함)]
-- 팩트는 객관적으로 전달하되, 나레이션 톤은 경각심을 일깨우는 날카롭고 호소력 있는 말투 유지
-- 확인되지 않은 내용은 '보도에 따르면', '논란이 되고 있다' 등으로 표현
-- 혐오/선동/음모론 단정 절대 금지
-
-[경제/재테크/부동산]
-- 특정 주식/코인/부동산에 대한 '무조건적인 매수/매도 추천' 절대 금지
-- 지나친 수익률 과장이나 허위 보장 금지
-- 시청자의 '손실 회피 심리'를 자극하되 철저히 객관적 수치와 근거 위주로 설명할 것
-
-[건강/의학/시니어/생활]
-- 치료·완치 단정 금지, '개인차가 있을 수 있음' 명시 또는 의사 상담 권유
-- 과도한 공포 조장 금지 (단, 실생활 주의점은 명확히 강조)
-- 시니어가 이해하기 쉬운 단어와 편안한 말투 사용
-
-7. 출력 요청 (아래 순서로 작성)
-
+6. 최종 출력 요청 (아래 순서로 출력할 것)
 ① 클릭 유도 제목 5개
-② 썸네일 문구 5개 (15자 내외, 텍스트만)
-③ 쇼츠 대본 1개 (300~400자, 나레이션 기준)
-④ 유튜브 영상 설명란 1개 (2~3줄)
-⑤ 해시태그 20개 (쉼표로 구분)
+② 썸네일 문구 5개 (텍스트만)
+③ 영상 대본 1개 (위 요구사항 분량에 맞춰서)
+④ 유튜브 영상 설명란 (3줄 요약)
+⑤ 해시태그 20개
 
 ⑥ 썸네일용 영문 이미지 프롬프트 1개
 - Korean person(s), Korean setting
 - ${imageStyle}
-- cinematic lighting, high contrast, 9:16 aspect ratio, ultra realistic, no text, no subtitles
+- cinematic lighting, 16:9 ratio, ultra realistic, no text
 
-⑦ 영상 배경용 영문 이미지 프롬프트 6개
-- 대본 흐름에 맞춘 장면 6개 묘사
+⑦ 영상 배경용 영문 이미지 프롬프트 6개 (장면별 분리)
 - Korean person(s), Korean setting
 - ${imageStyle}
-- each prompt independent, 9:16 aspect ratio, ultra realistic, no text, no subtitles
-
-⚠️ 저작권 안전 재구성 필수
-⚠️ 참고 영상과 유사한 문장/구성/순서 사용 금지
+- each prompt independent, 16:9 ratio, ultra realistic, no text
 `;
 }
 
@@ -247,17 +246,16 @@ async function copyBrief(idx){
   if (!row) return;
 
   const text = buildBriefText(row, idx + 1);
-
   const box = document.getElementById("resultBox");
   box.style.display = "block";
   box.textContent = text;
 
   try {
     await navigator.clipboard.writeText(text);
-    document.getElementById("status").innerText = "✅ [복사 완료] 이제 다른 학습 AI(Gems 등)에 Ctrl+V 로 붙여넣기 하세요!";
+    document.getElementById("status").innerText = "✅ [복사 완료] 학습 AI에 Ctrl+V 로 붙여넣기 하세요!";
   } catch (e) {
     selectText(box);
-    document.getElementById("status").innerText = "⚠️ 자동 복사 실패(브라우저 권한). 아래 텍스트가 파랗게 선택되었으니 직접 복사(Ctrl+C) 해주세요.";
+    document.getElementById("status").innerText = "⚠️ 자동 복사 실패. 아래 텍스트가 파랗게 선택되었으니 직접 복사(Ctrl+C) 해주세요.";
   }
 }
 
@@ -268,8 +266,7 @@ function selectText(el){
   sel.removeAllRanges();
   sel.addRange(range);
 }
-
-function num(v){ if (v === null || v === undefined) return ""; return String(v); }
+function num(v){ return (v === null || v === undefined) ? "" : String(v); }
 function escapeHtml(str){ return (str||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
 </script>
 </body>

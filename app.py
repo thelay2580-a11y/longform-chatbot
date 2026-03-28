@@ -12,16 +12,13 @@ app = Flask(__name__)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 YT_BASE = "https://www.googleapis.com/youtube/v3"
 
-# =====================
-# 기존 기능 1: 메인 페이지
-# =====================
 @app.route("/")
 @app.route("/trends")
 def home():
     return render_template("index.html")
 
 # =====================
-# 기존 기능 2: 유튜브 검색 및 점수 계산 엔진
+# 기존 정밀 탐색기 엔진 (수리 완료)
 # =====================
 def yt_search_video_ids(query: str, published_after_iso: str, max_results=50):
     params = {
@@ -72,9 +69,6 @@ def api_trends():
     sort_by = (data.get("sort_by") or "final").strip()
     duration_filter = data.get("duration", "shorts")
 
-    if not query:
-        return jsonify({"error": "검색어를 입력해주세요."}), 400
-
     try:
         now = datetime.now(timezone.utc)
         published_after = (now - timedelta(days=days)).isoformat().replace("+00:00", "Z")
@@ -83,12 +77,13 @@ def api_trends():
         if not ids: return jsonify({"rows": []})
 
         vids = yt_videos(ids)
-        channel_ids = [v.get("snippet", {}).get("channelId") for vids in vids]
+        # 🚨 이 부분에서 변수명이 꼬였던 것을 수정했습니다.
+        channel_ids = [v_item.get("snippet", {}).get("channelId") for v_item in vids]
         ch_items = yt_channels(channel_ids)
         subs_map = {c["id"]: int(c.get("statistics", {}).get("subscriberCount", 0) or 0) for c in ch_items}
 
         rows = []
-        for v in vids:
+        for v in vids: # 여기서 v를 명확하게 사용합니다.
             sn = v.get("snippet", {})
             st = v.get("statistics", {})
             cd = v.get("contentDetails", {})
@@ -145,7 +140,7 @@ def api_trends():
         return jsonify({"error": f"서버 오류: {str(e)}"}), 500
 
 # =====================
-# ⭐ 신규 기능: 실시간 유튜브 핫이슈 단어 탐색기 (새로운 주소: /hot-trends)
+# 신규 기능: 실시간 유튜브 핫이슈 단어 탐색기
 # =====================
 @app.route("/hot-trends")
 def hot_trends():
@@ -165,24 +160,19 @@ def hot_trends():
     try:
         response = requests.get(url, params=params)
         data = response.json()
-
         video_html = "<h2>📺 실시간 인기 급상승 뉴스/정치 영상</h2><ul>"
         all_titles = ""
-
         for item in data.get("items", []):
             title = item["snippet"]["title"]
             channel = item["snippet"]["channelTitle"]
             views = item["statistics"].get("viewCount", "0")
-
             video_html += f"<li style='margin-bottom:10px;'><b>{title}</b><br>(채널: {channel} | 조회수: {views}회)</li>"
             all_titles += title + " "
-
         video_html += "</ul>"
 
         stop_words = ['뉴스', '알고', '보니', '진짜', '이유', '어떻게', '결국', '이런', '저런', '있는', '하는', '그리고', '그래서', '속보', '단독', '충격', '오늘', '지금', '너무', '정말', '대박', '아니', '그냥', '무슨', '어떤', '왜', '대한', '모두']
         words = re.findall(r'[가-힣]{2,}', all_titles)
         filtered_words = [word for word in words if word not in stop_words]
-        
         word_counts = Counter(filtered_words)
         top_words = word_counts.most_common(10)
 
@@ -191,30 +181,11 @@ def hot_trends():
             word_html += f"<li><b>{word}</b> ({count}회 등장)</li>"
         word_html += "</ol>"
 
-        final_html = f"""
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>우파 쇼츠 트렌드 탐색기</title>
-        </head>
-        <body style="font-family: 'Malgun Gothic', sans-serif; padding: 30px; line-height: 1.6;">
-            <h1>🚀 실시간 트렌드 탐색기 엔진 (불용어 필터 적용)</h1>
-            <p>유튜브 알고리즘이 밀어주는 최신 뉴스 데이터를 분석합니다.</p>
-            <hr style="border: 2px solid #333;">
-            {word_html}
-            <hr style="border: 1px solid #ccc;">
-            {video_html}
-        </body>
-        </html>
-        """
+        final_html = f"<html><head><meta charset='UTF-8'><title>우파 트렌드 탐색기</title></head><body style='font-family: sans-serif; padding: 30px; line-height: 1.6;'><h1>🚀 실시간 트렌드 탐색기 (필터 적용)</h1><hr>{word_html}<hr>{video_html}</body></html>"
         return final_html
-
     except Exception as e:
-        return f"데이터를 불러오는 중 에러가 발생했습니다: {str(e)}"
+        return f"데이터 로드 실패: {str(e)}"
 
-# =====================
-# 실행
-# =====================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
